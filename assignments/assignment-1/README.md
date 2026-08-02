@@ -16,3 +16,6 @@ Welcome to the DBMS course! Before we start writing SQL, we need to set up our t
 6. Create a new Git branch.
 7. Commit your markdown file and image, then push your branch to GitHub.
 8. Open a Pull Request (PR) against the `main` branch to complete the assignment!
+
+> [!TIP]
+> **Need help?** Don't be afraid to use **Antigravity** or **ChatGPT**! If you get stuck on Git commands or how to format Markdown, ask your AI assistant to guide you through the process.
