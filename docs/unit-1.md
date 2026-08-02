@@ -122,11 +122,30 @@
 | **Object-Oriented Model** | Stores data as objects (like OOP languages) containing attributes and methods. Suitable for complex data like multimedia and CAD. |
 | **Object-Relational Model**| Combines Relational and Object-Oriented features. Uses tables but supports objects, inheritance, and user-defined data types. |
 
+### Database Model Diagrams
+
+**Hierarchical Model**
+![Hierarchical Model](./images/hierarchical_model.png)
+
+**Network Model**
+![Network Model](./images/network_model.png)
+
+**Relational Model**
+![Relational Model](./images/relational_model.png)
+
+**Object-Oriented Model**
+![Object-Oriented Model](./images/object_oriented_model.png)
+
+**Object-Relational Model**
+![Object-Relational Model](./images/object_relational_model.png)
+
 ---
 
 ## 4. Database Architecture (Three-Schema Architecture)
 
 The major purpose of a DBMS is to provide an abstract view of data, hiding details of how it is stored and maintained, while enabling multiple users to access personalized views.
+
+![DBMS Architecture](./images/dbms_architecture.png)
 
 1. **Physical Level (Internal Level):**
    * Lowest level of abstraction; describes *how* the data is actually stored.
