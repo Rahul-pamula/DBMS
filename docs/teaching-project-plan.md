@@ -9,7 +9,7 @@ In this project, you will act as the **Teacher and Open-Source Maintainer**, and
 
 ## 2. Infrastructure
 * **Database Host:** Aiven (MySQL)
-  * Using a cloud database ensures everyone connects to the exact same environment, avoiding local installation nightmares (like path variable issues or port conflicts).
+  * Use a single Aiven cloud cluster. Instruct each student to create their own logical database inside it (e.g., `ramya_db`, `yamini_db`). This gives everyone a safe sandbox in the cloud, completely bypassing local installation errors.
 * **Backend:** Node.js (with Prisma ORM) or Python (with SQLAlchemy)
 * **Version Control:** GitHub
 
@@ -27,15 +27,16 @@ In this project, you will act as the **Teacher and Open-Source Maintainer**, and
 ## 4. Step-by-Step Teaching Plan (Unit-wise Workflow)
 
 ### Phase 1: Pure SQL & Database Connection (Unit 2)
-Before introducing ORMs or backend code, students must learn raw SQL.
-1. **The Setup:** You create the MySQL database on Aiven and share the connection credentials. 
+Before introducing ORMs or backend code, students must learn raw SQL. To give all 6 students equal practice without conflicts, use the "Classroom Sandbox" workflow:
+1. **The Setup:** Provide the credentials to the central Aiven MySQL cluster. First, instruct each student to log in and create their *own* logical database (e.g., `ramya_db`, `yamini_db`).
 2. **The Lesson:** Teach DDL (`CREATE TABLE`) and DML (`INSERT`, `SELECT`).
-3. **The Issue:** You raise a GitHub Issue: *"Create the `Students` and `Departments` tables using raw SQL scripts."*
+3. **The Issues:** You raise identical, individual GitHub Issues for all 6 students.
+   * *Issue 1: @ramya - Create the `Students` table in your personal db.*
+   * *Issue 2: @yamini - Create the `Students` table in your personal db.*
 4. **The Contribution:** 
-   * A junior creates a new branch.
-   * They write a `.sql` file with the correct commands.
-   * They open a Pull Request.
-5. **The Review:** You review their SQL. Are the data types correct? Is the syntax valid? Once approved, you merge it and run it on the Aiven database.
+   * Each student creates a branch. To avoid merge conflicts, they name their SQL file after themselves (e.g., `unit-2/ramya_students.sql`).
+   * They connect to their personal database via DBeaver, run and test their script, and then open a Pull Request.
+5. **The Review:** You review all 6 PRs individually. You check their syntax and constraints, provide feedback, and merge all 6 into the main repository!
 
 ### Phase 2: Advanced SQL (Joins & Constraints)
 1. **The Lesson:** Teach primary/foreign keys, joins, and aggregations.
