@@ -63,4 +63,5 @@ DROP TABLE student_records;
 ---
 
 ## Conclusion
-DDL commands form the foundation of database management. They allow developers and DBAs to design, evolve, and maintain database schemas efficiently.
+DDL commands form the foundation of database management. They allow developers and DBAs to design, evolve, and maintain database schemas efficiently.
+# Roshini
