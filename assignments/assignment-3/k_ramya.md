@@ -345,9 +345,6 @@ Below are the terminal execution screenshots demonstrating the DDL commands:
 
 ---
 
-- **`CREATE`**: Defines new database objects (tables/databases).
-- **`ALTER`**: Modifies existing structures (`ADD`, `MODIFY`, `RENAME COLUMN`, `DROP COLUMN`).
-- **`RENAME`**: Updates object identifiers.
-- **`TRUNCATE`**: Fast DDL operation to empty tables while keeping schemas.
-- **`DROP`**: Complete and permanent removal of table schemas and disk pages.
-- **Conclusion**: Mastering `CREATE`, `ALTER`, `RENAME`, `TRUNCATE`, and `DROP` allows developers and database administrators to efficiently design, maintain, and evolve relational database schemas.
+## 5. Conclusion
+
+DDL commands form the backbone of database design. Mastering `CREATE`, `ALTER`, `RENAME`, `TRUNCATE`, and `DROP` allows developers and database administrators to efficiently design, maintain, and evolve relational database schemas.
