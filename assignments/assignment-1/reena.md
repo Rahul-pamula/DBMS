@@ -1,10 +1,8 @@
-# Assignment 2: MySQL Installation & Setup
+# Assignment 1: Environment Setup
 
 **Student Name:** Reena  
 **Course:** Database Management System (DBMS)  
 
----
-
 ## Verification Screenshot
-![MySQL Terminal](./images/reena_mysql.png)
+![My Setup](reena_screenshot.png)
 
