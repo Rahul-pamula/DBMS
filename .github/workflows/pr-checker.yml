@@ -1,25 +1,27 @@
-name: PR Issue Checker 🤖
+name: PR Issue Checker 🤖 (L3 — Auto Merge)
 
 on:
-  # Triggers automatically when a PR is opened, updated, or reopened
   pull_request:
     types: [opened, synchronize, reopened]
 
-  # Also runs on a schedule - every 6 hours
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */6 * * *'   # every 6 hours
 
-  # Lets you trigger it manually from GitHub Actions tab
   workflow_dispatch:
+    inputs:
+      auto_merge:
+        description: 'Enable auto-merge? (true/false)'
+        required: false
+        default: 'true'
 
 jobs:
-  check-pr:
+  check-and-merge:
     runs-on: ubuntu-latest
 
     permissions:
-      pull-requests: write   # needed to post comments on PRs
-      issues: read           # needed to read issue details
-      contents: read         # needed to read repo contents
+      pull-requests: write   # post comments on PRs
+      issues: read           # read issue details
+      contents: write        # ← NEEDED FOR MERGE (L3)
 
     steps:
       - name: Checkout repository
@@ -33,10 +35,11 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Run PR Issue Checker
+      - name: Run PR Issue Checker (L3)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          AUTO_MERGE: ${{ github.event.inputs.auto_merge || 'true' }}
         run: python .github/scripts/check_pr.py
