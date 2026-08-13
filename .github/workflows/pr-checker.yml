@@ -1,0 +1,42 @@
+name: PR Issue Checker 🤖
+
+on:
+  # Triggers automatically when a PR is opened, updated, or reopened
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # Also runs on a schedule - every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Lets you trigger it manually from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  check-pr:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write   # needed to post comments on PRs
+      issues: read           # needed to read issue details
+      contents: read         # needed to read repo contents
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run PR Issue Checker
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python .github/scripts/check_pr.py
