@@ -1,529 +1,602 @@
-# Unit 2 Part 10: Introduction to PL/SQL
+# Unit 2 Part 10: Introduction to MySQL Stored Programs (Procedural SQL)
 
-Welcome to Part 10! Until now, we have been using pure SQL. SQL is a **declarative** language—you tell it *what* you want, but you cannot write logic like `IF/ELSE` or `Loops`. 
+Welcome to Part 10!
 
-To write actual programming logic inside a database, Oracle invented **PL/SQL (Procedural Language extension to SQL)**. Other databases have similar concepts (like T-SQL in SQL Server).
+Until now, we have mostly been using **SQL**.
 
----
+SQL is very good at asking the database questions such as:
 
-## 1. What is PL/SQL?
-
-PL/SQL bridges the gap between database querying (SQL) and traditional programming (like Java or Python). It allows you to process data line-by-line, handle errors, and execute complex business logic securely inside the database server.
-
-### PL/SQL Execution Block Diagram
-When you send a PL/SQL block to the database, it splits the code:
-```mermaid
-flowchart LR
-    A[Client App] -->|Sends PL/SQL Block| B[Oracle Database Server]
-    B --> C{PL/SQL Engine}
-    C -->|Procedural Code (IF/Loops)| D[Procedural Executor]
-    C -->|SQL Queries (SELECT/INSERT)| E[SQL Engine Executor]
+```sql
+SELECT *
+FROM students;
 ```
-*(The PL/SQL engine executes the logic, and passes only the standard SQL parts to the SQL Engine, saving massive network traffic!)*
+
+or changing data:
+
+```sql
+UPDATE students
+SET marks = 90
+WHERE student_id = 1;
+```
+
+But SQL mainly tells the database **WHAT we want**.
+
+What if we want to tell the database:
+
+* If marks are greater than 40, print "Pass"
+* Otherwise, print "Fail"
+* Repeat something 10 times
+* Store a value in a variable
+* Handle an error
+* Process students one by one
+
+Now we need **programming logic**. 
 
 ---
 
-## 2. PL/SQL Block Structure
+# 🚨 IMPORTANT TEACHING CLARIFICATION
 
-Every PL/SQL program is written in "Blocks". A block has 3 main sections:
-1. **DECLARE (Optional):** Where you create variables and allocate memory.
-2. **BEGIN (Mandatory):** Where the actual execution logic happens.
-3. **EXCEPTION (Optional):** Where you handle errors (like division by zero).
-4. **END (Mandatory):** Closes the block.
+You might have heard the term **PL/SQL** on the internet. 
 
-### Memory Diagram: The PL/SQL Block
+**PL/SQL is Oracle's specific procedural language.**
+
+Since we are using **MySQL**, we will use **MySQL Stored Programs** (often called Stored Procedures). 
+
+The concepts are very similar, but the syntax is different. Do not confuse the two!
+
+**Oracle Database** → PL/SQL
+**MySQL Database** → Stored Programs / Stored Procedures
+
+Both provide:
+- Variables
+- Conditions (IF / ELSE)
+- Loops
+- Error handling
+- Cursors
+- SQL + programming logic
+
+In this lesson, **every example is written in MySQL.**
+
+---
+
+# 🎯 Today's Goal
+
+By the end of this lesson, we should understand:
+
 ```text
-[ RAM (Memory) ]
-+-------------------------+
-| DECLARE                 | <-- Allocates boxes in RAM for variables
-|   v_name VARCHAR2(20);  |
-+-------------------------+
-| BEGIN                   |
-|   v_name := 'Rahul';    | <-- Executes logic, changes RAM values
-|   DBMS_OUTPUT.PUT_LINE; | <-- Prints to screen
-+-------------------------+
-| EXCEPTION               | <-- Only runs if BEGIN crashes
-|   WHEN OTHERS THEN...   |
-+-------------------------+
-| END;                    | <-- Frees the RAM
-+-------------------------+
-```
-
-### Examples 1-5: Basic Structure
-
-```sql
--- Ex 1: The simplest PL/SQL Block (Anonymous Block)
-BEGIN
-    DBMS_OUTPUT.PUT_LINE('Hello World'); -- Prints to the console
-END;
-/
--- Explanation: The '/' tells the engine to execute the block immediately.
-
--- Ex 2: Block with DECLARE section
-DECLARE
-    v_message VARCHAR2(50); -- Line 1: Declare a variable
-BEGIN
-    v_message := 'Welcome to PL/SQL'; -- Line 2: Assign value using :=
-    DBMS_OUTPUT.PUT_LINE(v_message); -- Line 3: Print it
-END;
-/
-
--- Ex 3: Using SQL inside PL/SQL (SELECT INTO)
-DECLARE
-    v_student_name VARCHAR2(50);
-BEGIN
-    -- Line 2: Fetch one record from table and put it INTO our RAM variable
-    SELECT first_name INTO v_student_name FROM students WHERE student_id = 101;
-    DBMS_OUTPUT.PUT_LINE('Student is: ' || v_student_name); -- || is used to concatenate strings
-END;
-/
-
--- Ex 4: A block that does math
-DECLARE
-    v_num1 NUMBER := 10;
-    v_num2 NUMBER := 20;
-    v_sum NUMBER;
-BEGIN
-    v_sum := v_num1 + v_num2;
-    DBMS_OUTPUT.PUT_LINE('Sum: ' || v_sum);
-END;
-/
-
--- Ex 5: A block with an EXCEPTION (Error Handling)
-DECLARE
-    v_result NUMBER;
-BEGIN
-    v_result := 10 / 0; -- Line 2: This will cause a crash!
-EXCEPTION
-    WHEN ZERO_DIVIDE THEN -- Line 4: Catches the crash
-        DBMS_OUTPUT.PUT_LINE('Cannot divide by zero!');
-END;
-/
+MySQL Stored Procedures
+   ↓
+DELIMITER and Structure
+   ↓
+Variables
+   ↓
+SELECT ... INTO
+   ↓
+IF / CASE
+   ↓
+Loops (WHILE, LOOP, REPEAT)
+   ↓
+Exception Handling (Handlers)
+   ↓
+Cursors
 ```
 
 ---
 
-## 3. Variables, Constants, and Operators
+# PART 1 — What is a Stored Program?
 
-In PL/SQL, variables must be declared before they are used.
+## 1. What is it?
+A Stored Program is a block of programming logic that runs inside the MySQL database server.
 
-- **Variables:** Values can change during execution.
-- **Constants:** Values CANNOT change once set.
-- **Operators:** `:=` (Assignment), `=` (Equality check), `<>` (Not equal), `||` (String concat).
+## 2. Why do we need it?
+Imagine I say:
+> "Get Rahul's marks. If the marks are 40 or above, print `PASS`. Otherwise print `FAIL`."
 
-### Examples 6-15: Variables and Constants
+SQL by itself is not designed for this kind of procedural decision-making. We need something that combines:
 
-```sql
--- Ex 6: Declaring a Constant
-DECLARE
-    c_pi CONSTANT NUMBER := 3.14159; -- Cannot be changed later
-    v_radius NUMBER := 5;
-    v_area NUMBER;
-BEGIN
-    v_area := c_pi * (v_radius * v_radius);
-    DBMS_OUTPUT.PUT_LINE('Area: ' || v_area);
-END;
-/
-
--- Ex 7: The %TYPE attribute (Anchored Declaration)
--- If student_id changes from INT to VARCHAR in the table, our code won't break!
-DECLARE
-    v_id students.student_id%TYPE; 
-BEGIN
-    v_id := 101;
-    DBMS_OUTPUT.PUT_LINE('ID is: ' || v_id);
-END;
-/
-
--- Ex 8: Assigning values dynamically using SELECT INTO
-DECLARE
-    v_max_score marks.score%TYPE;
-BEGIN
-    SELECT MAX(score) INTO v_max_score FROM marks;
-    DBMS_OUTPUT.PUT_LINE('Highest Score: ' || v_max_score);
-END;
-/
-
--- Ex 9: Multiple variable declarations
-DECLARE
-    v_a NUMBER := 5;
-    v_b NUMBER := 10;
-BEGIN
-    v_a := v_a + v_b; -- v_a becomes 15
-    DBMS_OUTPUT.PUT_LINE(v_a);
-END;
-/
-
--- Ex 10: Boolean Variables (Can hold TRUE, FALSE, or NULL)
-DECLARE
-    v_is_passed BOOLEAN;
-    v_score NUMBER := 45;
-BEGIN
-    v_is_passed := (v_score >= 40); -- Evaluates to TRUE
-    IF v_is_passed THEN
-        DBMS_OUTPUT.PUT_LINE('Student Passed');
-    END IF;
-END;
-/
-
--- Ex 11-15: (Conceptual variations of variable scoping and mathematical operations).
-```
-
----
-
-## 4. Conditional Statements (IF / CASE)
-
-PL/SQL allows decision-making. 
-
-### IF-ELSE Flowchart
-```mermaid
-flowchart TD
-    A[Start] --> B{Condition True?}
-    B -- Yes --> C[Execute IF block]
-    B -- No --> D[Execute ELSE block]
-    C --> E[End IF]
-    D --> E
-```
-
-### Examples 16-25: IF and CASE Statements
-
-```sql
--- Ex 16: Simple IF statement
-DECLARE
-    v_score NUMBER := 85;
-BEGIN
-    IF v_score >= 40 THEN
-        DBMS_OUTPUT.PUT_LINE('Pass');
-    END IF;
-END;
-/
-
--- Ex 17: IF-ELSE statement
-DECLARE
-    v_score NUMBER := 30;
-BEGIN
-    IF v_score >= 40 THEN
-        DBMS_OUTPUT.PUT_LINE('Pass');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('Fail');
-    END IF;
-END;
-/
-
--- Ex 18: IF-ELSIF-ELSE statement (Notice the spelling is ELSIF)
-DECLARE
-    v_score NUMBER := 75;
-BEGIN
-    IF v_score >= 90 THEN
-        DBMS_OUTPUT.PUT_LINE('Grade: A');
-    ELSIF v_score >= 70 THEN
-        DBMS_OUTPUT.PUT_LINE('Grade: B');
-    ELSIF v_score >= 50 THEN
-        DBMS_OUTPUT.PUT_LINE('Grade: C');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('Grade: F');
-    END IF;
-END;
-/
-
--- Ex 19: Checking NULL values
-DECLARE
-    v_name VARCHAR2(20) := NULL;
-BEGIN
-    IF v_name IS NULL THEN -- Never use v_name = NULL
-        DBMS_OUTPUT.PUT_LINE('Name is missing');
-    END IF;
-END;
-/
-
--- Ex 20: Simple CASE statement
-DECLARE
-    v_grade CHAR(1) := 'B';
-BEGIN
-    CASE v_grade
-        WHEN 'A' THEN DBMS_OUTPUT.PUT_LINE('Excellent');
-        WHEN 'B' THEN DBMS_OUTPUT.PUT_LINE('Good');
-        WHEN 'C' THEN DBMS_OUTPUT.PUT_LINE('Average');
-        ELSE DBMS_OUTPUT.PUT_LINE('Unknown Grade');
-    END CASE;
-END;
-/
-
--- Ex 21-25: (Real-world examples like checking department limits before allowing enrollment).
-```
-
----
-
-## 5. Loops
-
-Loops execute a block of code multiple times.
-1. **Basic LOOP:** Runs infinitely until an `EXIT` condition is met.
-2. **WHILE LOOP:** Runs as long as a condition is `TRUE`.
-3. **FOR LOOP:** Runs a specific number of times.
-
-### Examples 26-40: Loops
-
-```sql
--- Ex 26: Basic Loop (Infinite unless exited)
-DECLARE
-    v_counter NUMBER := 1;
-BEGIN
-    LOOP
-        DBMS_OUTPUT.PUT_LINE('Counter: ' || v_counter);
-        v_counter := v_counter + 1;
-        EXIT WHEN v_counter > 5; -- The exit condition!
-    END LOOP;
-END;
-/
-
--- Ex 27: WHILE Loop
-DECLARE
-    v_counter NUMBER := 1;
-BEGIN
-    WHILE v_counter <= 5 LOOP
-        DBMS_OUTPUT.PUT_LINE('While Loop: ' || v_counter);
-        v_counter := v_counter + 1;
-    END LOOP;
-END;
-/
-
--- Ex 28: FOR Loop (Automatically increments)
-BEGIN
-    FOR i IN 1..5 LOOP
-        DBMS_OUTPUT.PUT_LINE('For Loop: ' || i);
-    END LOOP;
-END;
-/
-
--- Ex 29: FOR Loop in REVERSE
-BEGIN
-    FOR i IN REVERSE 1..5 LOOP
-        DBMS_OUTPUT.PUT_LINE('Reverse: ' || i);
-    END LOOP;
-END;
-/
-
--- Ex 30: Using a Loop to insert dummy data
-BEGIN
-    FOR i IN 1..10 LOOP
-        INSERT INTO hostels (hostel_id, room_number) VALUES (i, 100 + i);
-    END LOOP;
-    COMMIT; -- Save it permanently!
-END;
-/
-
--- Ex 31-40: (Examples covering skipping loop iterations using CONTINUE, and nested loops).
-```
-
----
-
-## 6. Nested Blocks
-
-You can place a PL/SQL block inside another block. 
-
-### Scoping Rules
-- The **Inner Block** can see variables declared in the **Outer Block**.
-- The **Outer Block** CANNOT see variables declared in the **Inner Block**.
-
-### Memory Visibility Diagram
 ```text
-[ Outer Block ] -> Sees v_outer
-    |
-    +-- [ Inner Block ] -> Sees v_outer AND v_inner
+Database + Programming Logic
 ```
 
-### Examples 41-45: Nested Blocks
+## 3. Simple Real-World Analogy
+Think of a standard SQL query as ordering food from a menu. You just point and say, "I want that." (WHAT).
+
+A Stored Procedure is like giving the chef a **recipe**. You tell them, "Get these ingredients (variables), check if the oven is hot (IF), stir 10 times (LOOP), and if you drop an egg, get a new one (Error Handling)."
+
+So:
+```text
+SQL
+= WHAT
+
+MySQL Stored Programs
+= WHAT + LOGIC
+```
+
+---
+
+# PART 2 — Block Structure & The DELIMITER
+
+In MySQL, we put our logic inside a **Stored Procedure**. 
+
+## 1. What is the DELIMITER?
+Normally in MySQL, every statement ends with a semicolon `;`. 
+When we write a Stored Procedure, we use many semicolons inside it. If we don't change the delimiter, MySQL will try to run the procedure before we finish writing it!
+
+So we temporarily change the end-of-statement marker to `//`.
+
+## 2. Basic Syntax
+```sql
+DELIMITER //
+
+CREATE PROCEDURE procedure_name()
+BEGIN
+    -- Programming logic goes here
+END //
+
+DELIMITER ;
+```
+
+## 3. Simple Classroom Example
+
+Let's write a procedure that prints "Hello Students". (Since MySQL doesn't have a built-in print command like Python, we use `SELECT` to print output to the screen).
 
 ```sql
--- Ex 41: Basic Nested Block
-DECLARE
-    v_outer VARCHAR2(20) := 'Outer Value';
+DELIMITER //
+
+CREATE PROCEDURE say_hello()
 BEGIN
-    DBMS_OUTPUT.PUT_LINE(v_outer);
+    SELECT 'Hello Students' AS Message;
+END //
+
+DELIMITER ;
+```
+
+To run it, we use the `CALL` command:
+```sql
+CALL say_hello();
+```
+
+## 4. Expected Output
+| Message |
+| --- |
+| Hello Students |
+
+## 5. 🧠 Remember This
+> **Always use `DELIMITER //` before creating a procedure, and `DELIMITER ;` after. Run it using `CALL procedure_name();`**
+
+---
+
+# PART 3 — Variables
+
+## 1. What is a variable?
+A variable is like a box in memory that stores a value. The value inside the box can change while the program runs.
+
+## 2. Why do we need it?
+We need variables to temporarily hold math calculations, student IDs, or query results so we can check them later.
+
+## 3. Basic Syntax
+In MySQL, we prepare the variable using `DECLARE`, and we change its value using `SET`.
+
+```sql
+DECLARE variable_name DATATYPE DEFAULT value;
+SET variable_name = new_value;
+```
+
+## 4. Simple Classroom Example
+
+```sql
+DELIMITER //
+
+CREATE PROCEDURE check_math()
+BEGIN
+    -- Create variables
+    DECLARE v_score INT DEFAULT 85;
+    DECLARE v_bonus INT DEFAULT 5;
+    DECLARE v_total INT;
+
+    -- Change value using SET
+    SET v_total = v_score + v_bonus;
+
+    -- Print the result
+    SELECT v_total AS FinalScore;
+END //
+
+DELIMITER ;
+
+CALL check_math();
+```
+
+## 5. Line-by-Line Explanation
+- `DECLARE v_score INT DEFAULT 85;` → Creates a box named `v_score`, sets it to integer, and puts 85 inside it.
+- `SET v_total = v_score + v_bonus;` → Adds the two boxes together and stores the answer (90) inside `v_total`.
+
+## 6. Expected Output
+| FinalScore |
+| --- |
+| 90 |
+
+## 7. 🧠 Remember This
+> **Use `DECLARE` to create the box. Use `SET` to change what is inside the box.**
+
+---
+
+# PART 4 — SELECT ... INTO
+
+## 1. What is it?
+It is a way to grab data from a real database table and put it straight into a variable box.
+
+## 2. Why do we need it?
+If we want to make a decision based on Rahul's real marks, we must first pull his marks out of the `students` table and store them in a variable.
+
+## 3. Simple Classroom Example
+
+```sql
+DELIMITER //
+
+CREATE PROCEDURE get_rahul_marks()
+BEGIN
+    DECLARE v_student_marks INT;
+
+    -- Fetch from table INTO variable
+    SELECT marks 
+    INTO v_student_marks
+    FROM students 
+    WHERE first_name = 'Rahul';
+
+    -- Print the variable
+    SELECT v_student_marks AS RahulMarks;
+END //
+
+DELIMITER ;
+
+CALL get_rahul_marks();
+```
+
+## 4. Line-by-Line Explanation
+- `DECLARE v_student_marks INT;` → Prepare an empty box.
+- `SELECT marks INTO v_student_marks` → Find Rahul's marks in the database and push that number directly into our box.
+
+## 5. Expected Output
+| RahulMarks |
+| --- |
+| 85 |
+
+## 6. 🧠 Remember This
+> **Normally `SELECT` shows data on the screen. `SELECT ... INTO` hides the data and secretly stores it in a variable.**
+
+---
+
+# PART 5 — Conditional Statements (IF / CASE)
+
+## 1. What is it?
+A condition allows the program to make a decision based on the data.
+
+## 2. Why do we need it?
+To run different code for different situations. 
+*If score >= 40 → Pass. Else → Fail.*
+
+## 3. Basic Syntax
+```sql
+IF condition THEN
+    -- do something
+ELSEIF another_condition THEN
+    -- do something else
+ELSE
+    -- do this if everything else fails
+END IF;
+```
+
+## 4. Simple Classroom Example
+Let's pass the student's name into the procedure as an **Input Parameter**, fetch their marks, and grade them!
+
+```sql
+DELIMITER //
+
+-- p_name is an input parameter we provide when we CALL the procedure
+CREATE PROCEDURE grade_student(IN p_name VARCHAR(50))
+BEGIN
+    DECLARE v_marks INT;
+
+    SELECT marks INTO v_marks
+    FROM students
+    WHERE first_name = p_name;
+
+    IF v_marks >= 90 THEN
+        SELECT 'Grade: A' AS Result;
+    ELSEIF v_marks >= 70 THEN
+        SELECT 'Grade: B' AS Result;
+    ELSEIF v_marks >= 40 THEN
+        SELECT 'Grade: C' AS Result;
+    ELSE
+        SELECT 'Grade: FAIL' AS Result;
+    END IF;
+
+END //
+
+DELIMITER ;
+
+-- Let's test it on Roshini and Reena!
+CALL grade_student('Roshini');
+CALL grade_student('Reena');
+```
+
+## 5. Expected Output
+For Roshini (92 marks):
+| Result |
+| --- |
+| Grade: A |
+
+For Reena (60 marks):
+| Result |
+| --- |
+| Grade: C |
+
+## 6. 🧠 Remember This
+> **MySQL uses `ELSEIF` (all one word). Don't forget `END IF;` at the end!**
+
+---
+
+# PART 6 — Loops
+
+## 1. What is a Loop?
+A loop repeats a section of code multiple times.
+
+## 2. Why do we need it?
+If you need to print something 5 times, you don't want to type the `SELECT` command 5 times. 
+
+## 3. MySQL Loop Types
+*(Note: Oracle has a `FOR` loop, but MySQL uses `WHILE`, `REPEAT`, or `LOOP` for stored programs).*
+
+### A. The WHILE Loop (Checks condition first)
+```sql
+DELIMITER //
+CREATE PROCEDURE test_while()
+BEGIN
+    DECLARE v_counter INT DEFAULT 1;
+
+    WHILE v_counter <= 3 DO
+        SELECT v_counter AS Count;
+        SET v_counter = v_counter + 1;
+    END WHILE;
+END //
+DELIMITER ;
+```
+*Flow: "While the counter is less than or equal to 3, keep DOING this."*
+
+### B. The LOOP with LEAVE (Infinite loop until we break out)
+```sql
+DELIMITER //
+CREATE PROCEDURE test_loop()
+BEGIN
+    DECLARE v_counter INT DEFAULT 1;
+
+    my_loop: LOOP
+        SELECT v_counter AS Count;
+        SET v_counter = v_counter + 1;
+
+        IF v_counter > 3 THEN
+            LEAVE my_loop; -- This breaks the loop
+        END IF;
+    END LOOP my_loop;
+END //
+DELIMITER ;
+```
+*Flow: "Keep looping forever! But wait, if we hit 3, LEAVE."*
+
+### C. The REPEAT Loop (Checks condition at the end)
+```sql
+DELIMITER //
+CREATE PROCEDURE test_repeat()
+BEGIN
+    DECLARE v_counter INT DEFAULT 1;
+
+    REPEAT
+        SELECT v_counter AS Count;
+        SET v_counter = v_counter + 1;
+    UNTIL v_counter > 3
+    END REPEAT;
+END //
+DELIMITER ;
+```
+*Flow: "Repeat this action UNTIL the counter is greater than 3."*
+
+## 4. 🧠 Remember This
+> **A loop always needs a way to stop! If you forget `SET v_counter = v_counter + 1`, the loop will run forever and crash your server!**
+
+---
+
+# PART 7 — Error Handling (Handlers)
+
+## 1. What is an Error Handler?
+It is a safety net. If a SQL command causes a crash, the Handler catches the error and decides what to do.
+
+## 2. Why do we need it?
+If we do a `SELECT ... INTO` but the student doesn't exist, MySQL will throw an error and stop the entire program. We want to catch that error and print a friendly message instead.
+
+## 3. Basic Syntax
+In MySQL, we use `DECLARE ... HANDLER`.
+
+## 4. Simple Classroom Example
+Let's try to find a student who is not in our database.
+
+```sql
+DELIMITER //
+
+CREATE PROCEDURE find_student_safe()
+BEGIN
+    DECLARE v_marks INT;
     
-    DECLARE
-        v_inner VARCHAR2(20) := 'Inner Value';
+    -- If a NOT FOUND error happens, CONTINUE running the code, but execute the SELECT first.
+    DECLARE CONTINUE HANDLER FOR NOT FOUND 
     BEGIN
-        DBMS_OUTPUT.PUT_LINE(v_outer); -- Inner can see outer!
-        DBMS_OUTPUT.PUT_LINE(v_inner);
+        SELECT 'Error: Student does not exist!' AS Warning;
     END;
-    
-    -- DBMS_OUTPUT.PUT_LINE(v_inner); -- ERROR! Outer cannot see inner.
-END;
-/
 
--- Ex 42: Variable Shadowing (Inner variable overrides outer with the same name)
-DECLARE
-    v_name VARCHAR2(20) := 'Rahul';
-BEGIN
-    DECLARE
-        v_name VARCHAR2(20) := 'Amit';
-    BEGIN
-        DBMS_OUTPUT.PUT_LINE(v_name); -- Prints Amit
-    END;
-    DBMS_OUTPUT.PUT_LINE(v_name); -- Prints Rahul
-END;
-/
+    -- This will fail because student 999 doesn't exist!
+    SELECT marks INTO v_marks
+    FROM students
+    WHERE student_id = 999;
 
--- Ex 43-45: (Nested exception handling logic).
+END //
+
+DELIMITER ;
+
+CALL find_student_safe();
 ```
+
+## 5. Expected Output
+| Warning |
+| --- |
+| Error: Student does not exist! |
+
+## 6. 🧠 Remember This
+> **Without a handler, an error crashes the procedure. With a handler, we catch the error gracefully.**
 
 ---
 
-## 7. Exception Handling
+# PART 8 — Cursors
 
-When PL/SQL encounters an error (like dividing by zero, or a query finding no rows), it **raises an exception**. If you don't handle it, the program crashes.
+## 1. What is a Cursor?
+A Cursor is a pointer that moves through a list of rows, **one row at a time**.
 
-### Common Predefined Exceptions:
-- `NO_DATA_FOUND`: A `SELECT INTO` query returned 0 rows.
-- `TOO_MANY_ROWS`: A `SELECT INTO` query returned more than 1 row (it can only hold 1!).
-- `ZERO_DIVIDE`: Math error.
-- `OTHERS`: Catches ALL errors.
+## 2. Why do we need it?
+Remember `SELECT ... INTO`? It only works if your query returns **exactly ONE row**. 
+If you write `SELECT first_name INTO v_name FROM students;`, MySQL will panic because there are 8 students! A single variable box cannot hold 8 names at once.
 
-### Examples 46-55: Exceptions
+To process all 8 students, we must open a Cursor, fetch the first student, do something, fetch the second student, do something, and so on.
+
+## 3. Simple Real-World Analogy
+Think of a Cursor like a **Teacher reading a class attendance sheet**. 
+The teacher opens the list, looks at row 1 (Rahul), reads it, moves their finger down to row 2 (Roshini), reads it, until they reach the end of the page.
+
+## 4. The 5 Steps of a MySQL Cursor
+1. **DECLARE**: Define the query.
+2. **DECLARE HANDLER**: Tell MySQL how to know when we reach the end of the list.
+3. **OPEN**: Run the query and prepare the list.
+4. **FETCH in a LOOP**: Grab one row at a time.
+5. **CLOSE**: Close the list.
+
+## 5. Simple Classroom Example
+
+Let's loop through all our students and print their names.
 
 ```sql
--- Ex 46: Handling NO_DATA_FOUND
-DECLARE
-    v_name students.first_name%TYPE;
-BEGIN
-    SELECT first_name INTO v_name FROM students WHERE student_id = 99999; -- ID doesn't exist
-    DBMS_OUTPUT.PUT_LINE(v_name);
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Error: Student does not exist in the database!');
-END;
-/
+DELIMITER //
 
--- Ex 47: Handling TOO_MANY_ROWS
-DECLARE
-    v_name students.first_name%TYPE;
+CREATE PROCEDURE print_all_students()
 BEGIN
-    SELECT first_name INTO v_name FROM students; -- Fails because it returns 5000 rows, but v_name holds 1!
-EXCEPTION
-    WHEN TOO_MANY_ROWS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: Query returned more than one row!');
-END;
-/
+    -- 1. Create variables to hold the data
+    DECLARE v_name VARCHAR(50);
+    DECLARE v_finished INT DEFAULT 0;
 
--- Ex 48: Handling multiple exceptions
-DECLARE
-    v_num NUMBER;
-BEGIN
-    v_num := 10 / 0;
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Not found');
-    WHEN ZERO_DIVIDE THEN
-        DBMS_OUTPUT.PUT_LINE('Math Error: Divide by Zero');
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('An unknown error occurred.');
-END;
-/
+    -- 2. DECLARE the cursor (The query)
+    DECLARE student_cursor CURSOR FOR 
+        SELECT first_name FROM students;
 
--- Ex 49: User-Defined Exceptions (Raising your own errors)
-DECLARE
-    e_invalid_age EXCEPTION; -- Step 1: Declare it
-    v_age NUMBER := 16;
-BEGIN
-    IF v_age < 18 THEN
-        RAISE e_invalid_age; -- Step 2: Throw it
-    END IF;
-    DBMS_OUTPUT.PUT_LINE('Admission Granted');
-EXCEPTION
-    WHEN e_invalid_age THEN -- Step 3: Catch it
-        DBMS_OUTPUT.PUT_LINE('Error: Student is under 18!');
-END;
-/
+    -- 3. DECLARE the handler (When we run out of rows, set v_finished to 1)
+    DECLARE CONTINUE HANDLER FOR NOT FOUND 
+        SET v_finished = 1;
 
--- Ex 50-55: (Logging errors into an error_logs table using the OTHERS block).
+    -- 4. OPEN the cursor
+    OPEN student_cursor;
+
+    -- 5. Loop through the rows
+    read_loop: LOOP
+        -- FETCH the next row into our variable
+        FETCH student_cursor INTO v_name;
+
+        -- If the handler triggered and we are out of rows, LEAVE the loop
+        IF v_finished = 1 THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Do something with the data
+        SELECT v_name AS StudentName;
+
+    END LOOP read_loop;
+
+    -- 6. CLOSE the cursor
+    CLOSE student_cursor;
+
+END //
+
+DELIMITER ;
+
+CALL print_all_students();
 ```
+
+## 6. 🧠 Remember This
+> **A Cursor requires a Loop and a `NOT FOUND` Handler so it knows exactly when to stop fetching.**
 
 ---
 
-## 8. Introduction to Cursors
+# 🎯 FINAL COMBINED EXAMPLE
 
-In Ex 47, we saw that `SELECT INTO` fails if it returns more than one row. What if we *want* to process thousands of rows line-by-line? We use a **Cursor**.
+Let's combine everything we've learned (Variables, Cursor, Loop, IF condition) into one final Stored Procedure. 
 
-A Cursor is a pointer to a temporary memory area (Context Area) containing the result set of an SQL query.
-
-### Context Area Memory Diagram
-```text
-[ Context Area (RAM) ]
-Row 1: Rahul, 85  <-- Cursor Pointer starts here
-Row 2: Priya, 90
-Row 3: Amit, 70
-```
-
-### Types of Cursors:
-1. **Implicit Cursor:** Created automatically by Oracle for DML statements (`SQL%ROWCOUNT`).
-2. **Explicit Cursor:** Created manually by the programmer to loop through multiple rows.
-
-### Examples 56-60: Cursors
+We will loop through every student. If their marks are >= 80, we will label them 'HONORS'. Otherwise, 'REGULAR'.
 
 ```sql
--- Ex 56: Implicit Cursor (Checking how many rows were updated)
-BEGIN
-    UPDATE marks SET score = score + 5 WHERE dept_id = 1;
-    IF SQL%FOUND THEN
-        DBMS_OUTPUT.PUT_LINE(SQL%ROWCOUNT || ' rows were updated.');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('No rows found to update.');
-    END IF;
-    COMMIT;
-END;
-/
+DELIMITER //
 
--- Ex 57: Explicit Cursor (Fetching multiple rows line-by-line)
-DECLARE
-    -- Step 1: Declare the cursor
-    CURSOR c_students IS SELECT first_name FROM students WHERE dept_id = 1;
-    v_name students.first_name%TYPE;
+CREATE PROCEDURE process_student_honors()
 BEGIN
-    -- Step 2: Open the cursor (Runs the query and loads RAM)
+    DECLARE v_name VARCHAR(50);
+    DECLARE v_marks INT;
+    DECLARE v_finished INT DEFAULT 0;
+
+    -- The Cursor
+    DECLARE c_students CURSOR FOR 
+        SELECT first_name, marks FROM students;
+
+    -- The Handler
+    DECLARE CONTINUE HANDLER FOR NOT FOUND 
+        SET v_finished = 1;
+
     OPEN c_students;
-    
-    LOOP
-        -- Step 3: Fetch one row into our variable
-        FETCH c_students INTO v_name;
-        
-        -- Step 4: Exit if no more rows are left
-        EXIT WHEN c_students%NOTFOUND;
-        
-        DBMS_OUTPUT.PUT_LINE('Student: ' || v_name);
-    END LOOP;
-    
-    -- Step 5: Close the cursor (Frees the RAM)
+
+    honor_loop: LOOP
+        -- Fetch two columns into two variables!
+        FETCH c_students INTO v_name, v_marks;
+
+        IF v_finished = 1 THEN
+            LEAVE honor_loop;
+        END IF;
+
+        -- The IF/ELSE Condition
+        IF v_marks >= 80 THEN
+            SELECT CONCAT(v_name, ' -> HONORS (', v_marks, ')') AS Result;
+        ELSE
+            SELECT CONCAT(v_name, ' -> REGULAR (', v_marks, ')') AS Result;
+        END IF;
+
+    END LOOP honor_loop;
+
     CLOSE c_students;
-END;
-/
 
--- Ex 58: Cursor FOR Loop (The highly optimized shortcut!)
--- You don't need to Open, Fetch, Exit, or Close. It does it automatically!
-DECLARE
-    CURSOR c_students IS SELECT first_name, last_name FROM students WHERE dept_id = 2;
-BEGIN
-    FOR student_rec IN c_students LOOP
-        DBMS_OUTPUT.PUT_LINE('Student: ' || student_rec.first_name || ' ' || student_rec.last_name);
-    END LOOP;
-END;
-/
+END //
 
--- Ex 59: Parameterized Cursor (Passing variables into a cursor)
-DECLARE
-    CURSOR c_marks (p_dept INT) IS SELECT score FROM marks WHERE dept_id = p_dept;
-    v_score marks.score%TYPE;
-BEGIN
-    OPEN c_marks(1); -- Opens cursor specifically for dept 1
-    FETCH c_marks INTO v_score;
-    CLOSE c_marks;
-END;
-/
+DELIMITER ;
 
--- Ex 60: Using FOR Update Cursors (Locking rows before updating them for concurrency safety).
+CALL process_student_honors();
 ```
+
+### This is the real purpose of Stored Programs:
+> **Instead of just asking the database for data, we can write actual programming logic that processes database data row by row, automatically!**
 
 ---
 
-## Conclusion
-PL/SQL turns your database from a simple storage locker into a highly intelligent application backend. By mastering Blocks, Variables, Loops, Exceptions, and Cursors, you can write enterprise-grade automation scripts directly on the server!
+# 🎓 Teacher's Quick Summary
+
+When teaching this chapter, explain it in this simple flow:
+
+1. **Why do we need this?** → SQL is great for fetching data, but terrible at making decisions (IF/ELSE) or looping.
+2. **What is it?** → Stored Procedures allow us to write traditional programming logic inside MySQL.
+3. **Variables** → We need boxes to hold temporary data.
+4. **SELECT ... INTO** → We need to pull data from our tables into those boxes.
+5. **Conditions** → We use `IF / ELSEIF` to make decisions based on what's in the box.
+6. **Loops** → We use `WHILE` or `LOOP` to repeat actions.
+7. **Error Handlers** → We need a safety net so the program doesn't crash when data is missing.
+8. **Cursors** → If a query returns 100 rows, a cursor is the "finger" that points to one row at a time so our loop can process them individually.
+
+**If you can explain this story to your students, they will understand the foundation of MySQL Procedural Programming!**

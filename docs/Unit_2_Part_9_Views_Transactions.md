@@ -1,347 +1,607 @@
-# Unit 2 Part 9: Views and Transaction Control (TCL)
+# Unit 2 Part 9: Views and Transactions (TCL)
 
-Welcome to Part 9! In this unit, we will cover two incredibly important concepts for enterprise databases: **Views** (Virtual Tables for security and simplicity) and **Transactions** (TCL - ensuring our database never gets corrupted during power failures).
+Welcome to Part 9! In this unit, we will cover two incredibly important concepts for real-world databases: **Views** (Virtual Tables for security and simplicity) and **Transactions** (ensuring our database never gets corrupted during power failures or errors).
 
 ---
 
-## 1. Views
+# 🎯 Today's Goal
 
-### Definition & Purpose
-A **View** is a virtual table based on the result-set of an SQL statement. 
-Unlike a regular table, a standard view does not store any physical data on the hard drive. It simply stores the SQL query. Every time you query a view, the database engine runs the underlying SQL query to fetch the data.
+Before writing SQL, we are going to understand the ideas using simple real-world examples right from our classroom data.
 
-**Why use Views?**
-1. **Security:** Hide sensitive columns (like `salary` or `passwords`) from certain users by giving them access to a view that excludes those columns.
-2. **Simplicity:** Hide complex `JOIN` queries behind a simple virtual table so junior developers can query it easily.
+We will apply these ideas to our:
+- `students` table
+- `departments` table
 
-### A. Simple View
-A Simple View is created from a **single base table** and does not contain any functions or grouping. 
-Because it maps directly to one table, **you can perform DML (INSERT, UPDATE, DELETE)** on a Simple View, and it will modify the original base table!
+By the end, you should be able to understand:
 
-### Examples 1-10: Simple Views
-```sql
--- Ex 1: Create a Simple View to hide sensitive faculty info (e.g., salary)
-CREATE VIEW public_faculty_info AS
-SELECT faculty_id, full_name, dept_id 
-FROM faculty;
+```text
+VIEWS
+    ↓
+Simple View
+Complex View
 
--- Ex 2: Querying the view (Acts exactly like a table!)
-SELECT * FROM public_faculty_info;
-
--- Ex 3: Create a Simple View for active students only
-CREATE VIEW active_students AS
-SELECT student_id, first_name, last_name 
-FROM students 
-WHERE status = 'Active';
-
--- Ex 4: Updating through a Simple View (This actually updates the 'students' table!)
-UPDATE active_students 
-SET last_name = 'Sharma' 
-WHERE student_id = 101;
-
--- Ex 5: Create a Simple View for female students
-CREATE VIEW female_students AS
-SELECT * FROM students WHERE gender = 'F';
-
--- Ex 6: Inserting through a Simple View
-INSERT INTO female_students (student_id, first_name, gender) 
-VALUES (500, 'Kavita', 'F');
-
--- Ex 7: Create view with check option (Prevents inserting data that violates the view's WHERE clause)
-CREATE VIEW male_students AS
-SELECT * FROM students WHERE gender = 'M'
-WITH CHECK OPTION;
-
--- Ex 8: This insert will FAIL because of WITH CHECK OPTION (Gender is not 'M')
--- INSERT INTO male_students (student_id, first_name, gender) VALUES (501, 'Neha', 'F');
-
--- Ex 9: Modifying an existing view
-CREATE OR REPLACE VIEW active_students AS
-SELECT student_id, first_name, email FROM students WHERE status = 'Active';
-
--- Ex 10: Dropping a view
-DROP VIEW active_students;
+TRANSACTIONS (TCL)
+    ↓
+ACID Properties
+START TRANSACTION
+COMMIT
+ROLLBACK
+SAVEPOINT
 ```
 
 ---
 
-### B. Complex View
-A Complex View is created from **multiple tables** (using JOINS), or contains aggregate functions (`GROUP BY`, `COUNT`, `MAX`). 
-Because the data is combined or summarized, **you CANNOT perform DML (INSERT/UPDATE/DELETE)** on a Complex View. It is read-only.
+# 🗄️ PART 0 — CREATE OUR TABLES FIRST
 
-### Examples 11-20: Complex Views
+Before performing any Views or Transactions, let's create our database tables.
+
+To teach Transactions (which often deal with money), we are going to add one new column to our `students` table: **`fee_balance`**.
+
+## 1. Create the `departments` table
 ```sql
--- Ex 11: Create a view combining Students and Departments
-CREATE VIEW student_department_view AS
-SELECT s.first_name, s.last_name, d.dept_name
-FROM students s
-INNER JOIN departments d ON s.dept_id = d.dept_id;
-
--- Ex 12: Query the complex view
-SELECT * FROM student_department_view WHERE dept_name = 'Computer Science';
-
--- Ex 13: Trying to UPDATE a complex view (This will FAIL)
--- UPDATE student_department_view SET first_name = 'Raj' WHERE last_name = 'Singh';
-
--- Ex 14: Create a view with Aggregate Functions (Department Statistics)
-CREATE VIEW dept_stats AS
-SELECT dept_id, COUNT(*) AS total_students, AVG(score) AS avg_score
-FROM marks
-GROUP BY dept_id;
-
--- Ex 15: Create a view generating the Academic Transcript
-CREATE VIEW student_transcripts AS
-SELECT s.first_name, c.course_name, m.score
-FROM students s
-INNER JOIN marks m ON s.student_id = m.student_id
-INNER JOIN courses c ON m.course_id = c.course_id;
-
--- Ex 16: Finding top students easily using the view
-SELECT * FROM student_transcripts WHERE score > 90;
-
--- Ex 17: Create a view for Faculty Workload
-CREATE VIEW faculty_workload AS
-SELECT f.full_name, COUNT(c.course_id) AS total_courses
-FROM faculty f
-LEFT JOIN courses c ON f.faculty_id = c.faculty_id
-GROUP BY f.full_name;
-
--- Ex 18: Drop the faculty workload view
-DROP VIEW faculty_workload;
-
--- Ex 19: View masking phone numbers (Showing only last 4 digits)
-CREATE VIEW secure_contact_info AS
-SELECT first_name, CONCAT('******', SUBSTRING(phone_number, 7, 4)) AS safe_phone
-FROM students;
-
--- Ex 20: Selecting from a view inside another query
-SELECT COUNT(*) FROM student_department_view WHERE dept_name = 'Mechanical';
-```
-
----
-
-### C. Materialized View
-A **Materialized View** does NOT compute the query on the fly. It actually runs the query and **stores the physical result data on the hard drive**. 
-- **Pros:** Incredibly fast for complex calculations on millions of rows.
-- **Cons:** The data can become stale. It needs to be "refreshed" periodically.
-
-*(Note: Oracle and PostgreSQL support `MATERIALIZED VIEW` natively. MySQL simulates this using event schedulers that physically update a regular table).*
-
-### Examples 21-25: Materialized Views (PostgreSQL Syntax)
-```sql
--- Ex 21: Create a Materialized View for heavy reporting
--- CREATE MATERIALIZED VIEW mv_university_stats AS
--- SELECT dept_id, AVG(score), COUNT(*) FROM marks GROUP BY dept_id;
-
--- Ex 22: Querying the Materialized View (Lightning fast!)
--- SELECT * FROM mv_university_stats;
-
--- Ex 23: Refreshing the data when the underlying tables change
--- REFRESH MATERIALIZED VIEW mv_university_stats;
-
--- Ex 24: Dropping the Materialized View
--- DROP MATERIALIZED VIEW mv_university_stats;
-
--- Ex 25: (In MySQL, this is just creating a real table and inserting data into it via a scheduled job).
-```
-
----
-
-## 2. Transaction Control Language (TCL) and ACID
-
-Imagine a student paying university fees. 
-1. Money is deducted from the Student's Bank Account.
-2. *POWER GOES OUT.*
-3. Money is NOT added to the University's Bank Account.
-
-The money disappeared! This is a database nightmare. To prevent this, SQL uses **Transactions**. A transaction treats multiple SQL statements as a **single unit of work**. Either ALL statements succeed, or NONE of them succeed.
-
-### The ACID Properties
-Every modern relational database guarantees ACID:
-- **A - Atomicity:** "All or Nothing." If one step fails, the entire transaction rolls back.
-- **C - Consistency:** The database moves from one valid state to another. Constraints (like ensuring account balance doesn't go below 0) are strictly enforced.
-- **I - Isolation:** Transactions happening at the same time do not interfere with each other.
-- **D - Durability:** Once a transaction is `COMMIT`ted, it is permanently saved to the hard drive, even if the server crashes immediately after.
-
-### Transaction Life Cycle Diagram
-```mermaid
-stateDiagram-v2
-    [*] --> Active : START TRANSACTION
-    Active --> PartiallyCommitted : All Queries Executed
-    Active --> Failed : Error / Power Loss
-    PartiallyCommitted --> Committed : COMMIT
-    PartiallyCommitted --> Failed : User aborts
-    Failed --> Aborted : ROLLBACK
-    Committed --> [*] : Permanently Saved
-    Aborted --> [*] : Undone (Back to Start)
-```
-
----
-
-## 3. Transaction Control Commands
-
-1. **START TRANSACTION** (or `BEGIN`): Starts the transaction block.
-2. **COMMIT**: Permanently saves the transaction to the disk.
-3. **ROLLBACK**: Undoes all changes made since the transaction started.
-4. **SAVEPOINT**: Sets a checkpoint inside a transaction so you can roll back to a specific point instead of undoing everything.
-
-*(Important: DDL commands like `CREATE TABLE` and `DROP TABLE` are auto-committed. You cannot roll them back. TCL only applies to DML commands like `INSERT`, `UPDATE`, `DELETE`).*
-
----
-
-### Examples 26-60: Banking and Transaction Scenarios
-
-Let's assume a table: `accounts (account_id, name, balance)`
-
-```sql
--- Ex 26: Create the accounts table
-CREATE TABLE accounts (
-    account_id INT PRIMARY KEY,
-    name VARCHAR(50),
-    balance DECIMAL(10,2) CHECK (balance >= 0) -- Consistency rule!
+CREATE TABLE departments (
+    dept_id INT PRIMARY KEY,
+    dept_name VARCHAR(50) NOT NULL
 );
-
--- Ex 27: Insert initial data
-INSERT INTO accounts VALUES (1, 'Student', 5000);
-INSERT INTO accounts VALUES (2, 'University', 100000);
 ```
 
-#### Successful Transaction (COMMIT)
+## 2. Create the `students` table
 ```sql
--- Ex 28: Start Transaction
-START TRANSACTION;
-
--- Ex 29: Step 1: Deduct 1000 from Student
-UPDATE accounts SET balance = balance - 1000 WHERE account_id = 1;
-
--- Ex 30: Step 2: Add 1000 to University
-UPDATE accounts SET balance = balance + 1000 WHERE account_id = 2;
-
--- Ex 31: Both steps succeeded. Save it!
-COMMIT;
-
--- Ex 32: Check final balances
-SELECT * FROM accounts;
+CREATE TABLE students (
+    student_id INT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    dept_id INT,
+    marks INT,
+    fee_balance INT, -- Added for our transaction examples!
+    FOREIGN KEY (dept_id) REFERENCES departments(dept_id)
+);
 ```
 
-#### Failed Transaction (ROLLBACK)
+## 3. Insert the departments
 ```sql
--- Ex 33: Start Transaction
-START TRANSACTION;
-
--- Ex 34: Deduct 2000 from Student
-UPDATE accounts SET balance = balance - 2000 WHERE account_id = 1;
-
--- Ex 35: Oh no! We realize the University account ID is wrong, or the server crashed. Undo!
-ROLLBACK;
-
--- Ex 36: Check balances. The student got their money back. It was never permanently saved!
-SELECT * FROM accounts;
+INSERT INTO departments (dept_id, dept_name)
+VALUES
+(101, 'Piet'),
+(102, 'PIT'),
+(103, 'PIN');
 ```
 
-#### Constraint Violation Triggering Rollback
+## 4. Insert the students
 ```sql
--- Ex 37: Start Transaction
-START TRANSACTION;
-
--- Ex 38: Student tries to pay 10000, but they only have 4000.
--- This query FAILS immediately because of the CHECK (balance >= 0) constraint (Consistency!).
--- UPDATE accounts SET balance = balance - 10000 WHERE account_id = 1;
-
--- Ex 39: Because Step 1 failed, we MUST abort the transaction.
-ROLLBACK;
+INSERT INTO students (student_id, first_name, dept_id, marks, fee_balance)
+VALUES
+(1, 'Rahul', 101, 85, 5000),
+(2, 'Roshini', 102, 92, 5000),
+(3, 'Yamini', 101, 70, 2000),
+(4, 'k_Ramya', 103, 88, 3000),
+(5, 'Reena', 102, 60, 1000),
+(6, 'm_Ramya', 101, 95, 6000),
+(7, 'Vaibhav', 102, 78, 4000),
+(8, 'Vishal', 103, 90, 5000);
 ```
 
-#### Using SAVEPOINT
-Sometimes a transaction is very long (e.g., 10 inserts). If the 10th one fails, you don't want to undo the first 9. You use a Savepoint.
+> **Important:** Run the `CREATE TABLE` statements first, then the `INSERT` statements.
 
-```sql
--- Ex 40: Start Transaction
-START TRANSACTION;
+---
 
--- Ex 41: Insert student 1
-INSERT INTO students (student_id, first_name) VALUES (901, 'John');
+# PART 1 — VIEWS
 
--- Ex 42: Create a checkpoint
-SAVEPOINT sp1;
+## 🧠 First, What Is a View?
 
--- Ex 43: Insert student 2
-INSERT INTO students (student_id, first_name) VALUES (902, 'Alice');
+A **View is a virtual table created from a SQL query.**
 
--- Ex 44: Create another checkpoint
-SAVEPOINT sp2;
+The most important thing to remember:
 
--- Ex 45: Insert student 3 with a mistake!
-INSERT INTO students (student_id, first_name) VALUES (903, NULL); -- Fails due to NOT NULL!
+> **A View acts like a table, but it is NOT a new physical table.**
 
--- Ex 46: Rollback just the mistake, back to checkpoint 2
-ROLLBACK TO sp2;
+Think of a real table like a **room full of people**.
 
--- Ex 47: Fix the mistake and insert correctly
-INSERT INTO students (student_id, first_name) VALUES (903, 'Bob');
-
--- Ex 48: Commit the transaction. John, Alice, and Bob are saved.
-COMMIT;
+```text
+students table
+┌──────────────────────────────┐
+│ Rahul                        │
+│ Roshini                      │
+│ Yamini                       │
+│ Reena                        │
+└──────────────────────────────┘
 ```
 
-#### More Rollback and Commit Examples
+Now imagine we create a **window** to look into that room.
+
+```text
+students table
+       ↓
+   ┌─────────┐
+   │ WINDOW  │
+   └─────────┘
+       ↓
+      View
+```
+
+The window doesn't create another room or copy the people.
+
+It simply gives us a different way to **look at the original room**.
+
+That is exactly how a View works.
+
+### Important:
+
+A View:
+
+* Does **not** create a new copy of the data.
+* Does **not** store a separate set of rows like a normal table.
+* Is basically a **saved SQL query**.
+* Can be queried using `SELECT` just like a table.
+* Shows data from the original/base table(s).
+
+So we can say:
+
+```text
+TABLE
+  ↓
+Stores actual data
+
+VIEW
+  ↓
+Stores the query
+  ↓
+Shows data from the original table(s)
+```
+
+### 🎯 Easy Definition
+
+> **A View is a virtual table created from a saved SQL query. It behaves like a table when we query it, but it does not create a new physical table or copy the data.**
+
+---
+
+## 🎮 Interactive Question 1
+
+Ask the students:
+
+> "I want to hire a junior assistant to update student names, but I don't want them to see your `marks` or your `fee_balance`. How can I give them access to the data without compromising your privacy?"
+
+Let them answer.
+
+Expected answer:
+
+> "Make a new table without those columns?"
+
+**Teacher responds:**
+
+"But if we make a new table, we have to copy all the data! And if a name changes in the new table, it won't automatically update the original table."
+
+The better solution is to create a **VIEW**!
+
+A View allows us to show only the columns we want without creating a completely new copy of the data.
+
+---
+
+# 1. Simple View
+
+A **Simple View** is created from a **single base table**.
+
+Think of it like:
+
+```text
+students table
+      ↓
+   Simple View
+```
+
+Only **one table** is involved.
+
+### 💻 SQL Example: Creating a Secure View
+
+Let's create a View that hides the sensitive columns (`marks` and `fee_balance`).
+
 ```sql
--- Ex 49: Bulk update marks
-START TRANSACTION;
-UPDATE marks SET score = score + 5 WHERE dept_id = 1;
+CREATE VIEW public_student_info AS
+SELECT student_id, first_name, dept_id
+FROM students;
+```
 
--- Ex 50: Verify the update looks correct
-SELECT * FROM marks WHERE dept_id = 1;
+Now the junior assistant can query the View just like a table:
 
--- Ex 51: Looks good, lock it in.
-COMMIT;
+```sql
+SELECT * FROM public_student_info;
+```
 
--- Ex 52: Accidental Delete Without WHERE
-START TRANSACTION;
-DELETE FROM enrollments;
+### Result:
 
--- Ex 53: Rollback to save the day!
-ROLLBACK;
+| student_id | first_name | dept_id |
+| ---------- | ---------- | ------: |
+| 1          | Rahul      |     101 |
+| 2          | Roshini    |     102 |
+| 3          | Yamini     |     101 |
+| ...        | ...        |     ... |
 
--- Ex 54: Nested Savepoints
-START TRANSACTION;
-UPDATE accounts SET balance = 100 WHERE account_id = 1;
-SAVEPOINT a;
-UPDATE accounts SET balance = 200 WHERE account_id = 1;
-SAVEPOINT b;
-UPDATE accounts SET balance = 300 WHERE account_id = 1;
+Notice:
 
--- Ex 55: Rollback to 'a'. The balance reverts to 100.
-ROLLBACK TO a;
-COMMIT;
+```text
+marks        → Hidden
+fee_balance  → Hidden
+```
 
--- Ex 56: Dropping a Savepoint if no longer needed
--- RELEASE SAVEPOINT sp1;
+The data is still inside the original `students` table.
 
--- Ex 57: Attempting to rollback DDL (Fails! The table is still gone)
-START TRANSACTION;
-DROP TABLE unused_table;
-ROLLBACK; 
+We are simply using the View to show only the information we want.
 
--- Ex 58: Using transactions in stored procedures (Concepts for later)
--- A procedure can automatically ROLLBACK if a SQLException is caught.
+---
 
--- Ex 59: Implicit Commit (Running a DDL command inside an active transaction auto-commits the DML above it!)
-START TRANSACTION;
-UPDATE students SET status = 'Graduated' WHERE student_id = 101;
-CREATE TABLE temp (id INT); -- This auto-commits the UPDATE above!
-ROLLBACK; -- This does nothing now.
+## 🎤 Ask the Students
 
--- Ex 60: Turning Auto-Commit off globally (Requires explicit COMMIT for everything)
-SET autocommit = 0;
+Ask:
+
+> "Since this View is looking directly at the `students` table, what happens if I run an `UPDATE` on the View?"
+
+```sql
+UPDATE public_student_info
+SET first_name = 'Rahul Sharma'
+WHERE student_id = 1;
+```
+
+Expected answer:
+
+> "The original `students` table should be updated!"
+
+Exactly!
+
+Because this is a **Simple View** based directly on one table, it can generally be updated.
+
+So:
+
+```text
+UPDATE VIEW
+     ↓
+Underlying students table
+     ↓
+Data changes
+```
+
+### 🔥 Important Concept
+
+The View is **not another copy of the data**.
+
+For example:
+
+```text
+students table
+┌─────────────────────────────┐
+│ 1 | Rahul | 101 | 85 | 5000│
+└─────────────────────────────┘
+             ↑
+             │
+             │ View looks at this data
+             │
+┌─────────────────────────────┐
+│ public_student_info         │
+│ 1 | Rahul | 101             │
+└─────────────────────────────┘
+```
+
+There aren't two separate copies of Rahul's data.
+
+The View is simply showing selected information from the original table.
+
+---
+
+# 2. Complex View
+
+If a Simple View is a window into **one room**, a **Complex View** is like creating a combined picture using information from **multiple rooms**.
+
+In SQL, a Complex View can involve:
+
+* Multiple tables
+* `JOIN`
+* Calculations
+* Aggregations or other complex query logic
+
+For our example, we have:
+
+```text
+students table
+      +
+departments table
+      ↓
+     JOIN
+      ↓
+Complex View
+```
+
+### 💻 SQL Example
+
+Writing this JOIN every time can become annoying:
+
+```sql
+SELECT
+    s.student_id,
+    s.first_name,
+    d.dept_name,
+    s.marks
+FROM students s
+INNER JOIN departments d
+    ON s.dept_id = d.dept_id;
+```
+
+Instead, we can save the query as a View:
+
+```sql
+CREATE VIEW student_department_view AS
+SELECT
+    s.student_id,
+    s.first_name,
+    d.dept_name,
+    s.marks
+FROM students s
+INNER JOIN departments d
+    ON s.dept_id = d.dept_id;
+```
+
+Now we can simply write:
+
+```sql
+SELECT *
+FROM student_department_view;
+```
+
+We don't have to write the JOIN again.
+
+### Think about it like this:
+
+```text
+students                    departments
+   │                              │
+   │                              │
+   └────────── JOIN ──────────────┘
+                  ↓
+        student_department_view
+```
+
+The View gives us a convenient way to look at the combined information.
+
+---
+
+## 🔎 Filtering a Complex View
+
+Because the View acts like a table when we query it, we can use `WHERE`:
+
+```sql
+SELECT *
+FROM student_department_view
+WHERE marks > 80;
+```
+
+So we can use the View almost like a normal table when retrieving data.
+
+---
+
+# ❓ Why is a Complex View Different?
+
+The important difference is that the View is combining information from multiple tables.
+
+For example:
+
+```text
+students
+   │
+   │ student information
+   │
+   ├──────── JOIN ────────┐
+   │                      │
+   │                      │
+departments               │
+   │                      │
+   │ department info      │
+   └──────────────────────┘
+              ↓
+       Complex View
+```
+
+If we try to update the Complex View, the database may not know exactly what we want to change.
+
+For example:
+
+```sql
+UPDATE student_department_view
+SET dept_name = 'Science'
+WHERE first_name = 'Roshini';
+```
+
+What exactly do we mean?
+
+Do we want:
+
+```text
+Roshini's department to change?
+```
+
+or:
+
+```text
+The entire department name "PIT" to change to "Science"?
+```
+
+Because the View combines information from `students` and `departments`, the operation can become ambiguous.
+
+Therefore, **for this course, we treat Complex Views as read-only.**
+
+---
+
+# 🧠 Simple Way to Remember
+
+```text
+                VIEW
+                  │
+        ┌─────────┴─────────┐
+        ↓                   ↓
+   SIMPLE VIEW         COMPLEX VIEW
+        ↓                   ↓
+    1 TABLE          Multiple Tables
+        ↓                   ↓
+  Simple Query       JOIN / Complex Query
+        ↓                   ↓
+  Can generally       Mainly used for
+    be updated          reading
+```
+
+### ⭐ One-Line Memory Trick
+
+> **Simple View = One Table → Window into one table**
+
+> **Complex View = Multiple Tables → Combined/Collage View**
+
+### 🚨 Most Important Point
+
+> **A View is NOT a new table. It is a saved query that behaves like a table when we use `SELECT`.**
+
+```text
+Normal Table
+    ↓
+Stores actual data
+
+View
+    ↓
+Stores the query definition
+    ↓
+Shows data from original table(s)
 ```
 
 ---
 
-## End of Unit Assignments
+# PART 2 — TRANSACTIONS (TCL)
 
-1. **Theoretical Concept:** Explain the difference between Atomicity and Isolation in the ACID properties. Give an example where Isolation fails (e.g., Dirty Read).
-2. **View Creation:** Write a query to create a Simple View called `exam_schedule_view` that only shows exams occurring in November 2026. Can you run an `UPDATE` on this view? Why or why not?
-3. **Complex View:** Create a view `student_gpa` that joins `students` and `marks` to calculate the Average Score per student. 
-4. **Transaction Script:** Write a SQL script using `START TRANSACTION`, `UPDATE`, and `COMMIT` that moves a student (ID 101) from Department 1 to Department 2, and simultaneously updates their hostel room allocation in the `hostels` table.
-5. **Savepoint Debugging:** A developer starts a transaction, deletes 5 rows, sets a savepoint `S1`, deletes 5 more rows, and types `ROLLBACK TO S1; COMMIT;`. How many rows were permanently deleted?
+Now we enter the world of Transaction Control Language (TCL).
+
+## 🧠 First, What Is a Transaction?
+
+Let's look at a real-world scenario using our `fee_balance`.
+
+Imagine **Rahul** (ID 1) wants to transfer 1,000 rupees of his fee balance to his friend **Yamini** (ID 3) to help her out. 
+
+To do this in SQL, we need **TWO** queries:
+1. Deduct 1000 from Rahul.
+2. Add 1000 to Yamini.
+
+```sql
+UPDATE students SET fee_balance = fee_balance - 1000 WHERE student_id = 1; -- Step 1
+UPDATE students SET fee_balance = fee_balance + 1000 WHERE student_id = 3; -- Step 2
+```
+
+## 🎮 Interactive Question 2
+
+Ask the students:
+> "What happens if Step 1 executes perfectly (Rahul loses 1000), but right before Step 2 executes, the POWER GOES OUT and the server crashes?"
+
+Let them answer.
+
+Expected answer:
+> "Rahul lost his money, but Yamini never got it! The money vanished into thin air!"
+
+Exactly! This is a database nightmare. To prevent this, SQL uses **Transactions**. 
+
+A transaction treats multiple SQL statements as a **single unit of work**. Either ALL steps succeed, or NONE of them succeed. **All or Nothing.**
+
+---
+
+# 1. The ACID Properties
+
+To guarantee our money doesn't vanish, databases follow 4 rules called ACID:
+
+1. **A - Atomicity:** "All or Nothing." If one step fails, the entire transaction rolls back.
+2. **C - Consistency:** The database rules are never broken (e.g., fee_balance can't be negative).
+3. **I - Isolation:** If two people try to transfer money at the exact same time, they won't interfere with each other.
+4. **D - Durability:** Once the transaction is saved (Committed), it survives even if the power goes out a second later.
+
+---
+
+# 2. Transaction Commands (The Magic Words)
+
+To use transactions, we use these commands:
+1. `START TRANSACTION;` (Begins the safe zone)
+2. `COMMIT;` (Saves the changes permanently)
+3. `ROLLBACK;` (Undoes the changes like an "Undo" button)
+4. `SAVEPOINT;` (A checkpoint)
+
+Let's see them in action!
+
+## 💻 Successful Transaction (COMMIT)
+
+Let's safely transfer 1000 from Rahul to Yamini.
+
+```sql
+-- Open the safe zone
+START TRANSACTION;
+
+-- Step 1: Deduct from Rahul
+UPDATE students SET fee_balance = fee_balance - 1000 WHERE first_name = 'Rahul';
+
+-- Step 2: Add to Yamini
+UPDATE students SET fee_balance = fee_balance + 1000 WHERE first_name = 'Yamini';
+
+-- Both queries worked perfectly without power failure! Lock it in!
+COMMIT;
+```
+Once we type `COMMIT`, the data is permanently saved to the hard drive. 
+
+## 💻 Failed Transaction (ROLLBACK)
+
+Let's say Roshini wants to transfer 2000 to Reena.
+
+```sql
+-- Open the safe zone
+START TRANSACTION;
+
+-- Step 1: Deduct from Roshini
+UPDATE students SET fee_balance = fee_balance - 2000 WHERE first_name = 'Roshini';
+
+-- OH NO! We just realized Reena's account is frozen or we made a typo!
+-- Press the UNDO button!
+ROLLBACK;
+```
+
+When we type `ROLLBACK`, the database completely undoes Step 1. Roshini gets her 2000 back instantly. The database is safe!
+
+## 💻 Using SAVEPOINT (Checkpoints)
+
+Sometimes a transaction is very long (e.g., grading 10 students). If the 10th one fails, you don't want to `ROLLBACK` and undo the first 9. You use a **Savepoint**!
+
+```sql
+START TRANSACTION;
+
+-- Grade student 1
+UPDATE students SET marks = 90 WHERE first_name = 'Rahul';
+
+-- Create a checkpoint!
+SAVEPOINT after_rahul;
+
+-- Grade student 2
+UPDATE students SET marks = 85 WHERE first_name = 'Yamini';
+
+-- Create another checkpoint!
+SAVEPOINT after_yamini;
+
+-- Oops, we accidentally typed a letter instead of a number for Reena, this query fails!
+UPDATE students SET marks = 'A+' WHERE first_name = 'Reena'; 
+
+-- We only want to undo Reena's mistake, not Rahul and Yamini!
+ROLLBACK TO after_yamini;
+
+-- Now we can fix Reena's marks correctly
+UPDATE students SET marks = 95 WHERE first_name = 'Reena';
+
+-- Save everything to the hard drive
+COMMIT;
+```
+
+---
+
+# 🎯 Summary for the Board (TCL)
+
+Write this on the board at the end of class:
+
+1. **TRANSACTION:** A group of queries treated as "All or Nothing".
+2. **ACID:** Atomicity, Consistency, Isolation, Durability.
+3. **START TRANSACTION:** Begins the process.
+4. **COMMIT:** "Save my work permanently."
+5. **ROLLBACK:** "Undo everything since I started."
+6. **SAVEPOINT:** "Create a checkpoint so I only have to undo a little bit."
