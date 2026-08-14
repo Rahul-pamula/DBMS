@@ -12,6 +12,14 @@ An ER Diagram is a visual map of your database. It shows what data we are storin
 
 To read a database blueprint, you only need to know a few basic shapes. This is a very common exam question!
 
+Here are the standard symbols used in ER Diagrams:
+
+![ER Diagram Symbols Overview](assets/er_symbols_1.png)
+
+![Detailed ER Diagram Symbols](assets/er_symbols_2.jpg)
+
+### Quick Summary of Symbols:
+
 | Shape | Name | What it means | Example in our database |
 |---|---|---|---|
 | 🟦 **Rectangle** | **Entity** | A real-world object or thing. (Becomes a Table). | `Student`, `Department` |
