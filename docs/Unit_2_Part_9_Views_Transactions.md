@@ -88,9 +88,14 @@ VALUES
 
 ## 🧠 First, What Is a View?
 
-Don't overthink it. For today, think of a **view as a Saved Query that acts like a Virtual Table**.
+Think of a real table (like `students`) as a physical room full of people. 
 
-Unlike a regular table, a standard view does not store any physical data on the hard drive. Every time you query a view, the database secretly runs the underlying SQL query to fetch the live data.
+A **View is just a window looking into that room**.
+1. The window itself doesn't contain any people (it doesn't store physical data on your hard drive). 
+2. It just lets you look at the people inside the real room. 
+3. If someone walks into the real room, you instantly see them through the window.
+
+In SQL, a View is just a **Saved Query**. Instead of typing a huge query over and over, you save it as a View. When you query the View, it looks and acts exactly like a real table, but secretly it's just peeking through the window at the live data!
 
 ## 🎮 Interactive Question 1
 
