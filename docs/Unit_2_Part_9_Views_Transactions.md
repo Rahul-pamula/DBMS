@@ -161,11 +161,11 @@ Exactly! Because it is a **Simple View** (mapped 1-to-1 with a real table), we c
 
 # 2. Complex View
 
-A Complex View is created from **multiple tables** (using JOINS), or contains grouping/math.
+If a Simple View is a window into *one* room, a **Complex View** is like a **Collage** that blends pieces from *two different rooms* (using JOINS), or does math (like averages). 
 
 ## 💻 SQL Example: Hiding Complex Joins
 
-Writing JOINs every time we want to see the student's name and their department name is annoying. Let's save that query as a **Complex View**.
+Writing JOINs every time we want to see the student's name and their department name is annoying. Let's save that joined query as a **Complex View**.
 
 ```sql
 CREATE VIEW student_department_view AS
@@ -181,14 +181,18 @@ SELECT * FROM student_department_view WHERE marks > 80;
 
 ### Why can't we update a Complex View?
 
-If we try to run this:
+You can look at a collage all you want (SELECT). But if you try to change something in the collage, things get confusing!
+
 ```sql
 -- This will FAIL!
 UPDATE student_department_view 
 SET dept_name = 'Science' 
 WHERE first_name = 'Roshini';
 ```
-The database will block it. Why? Because the view combines two tables. The database doesn't know if you want to change the name of the department in the `departments` table (which would affect everyone), or move the student to a new department!
+The database will block it. Why? Because the view combines the `students` table and the `departments` table. The database asks:
+> *"Wait, do you want to rename the whole department to 'Science' (which changes it for everyone), OR do you want to move Roshini to a different department?"*
+
+Because it's a blended picture from two tables, the database doesn't know what you mean. Therefore, **you cannot UPDATE a complex view**—it is Read-Only!
 
 ### 🎯 Summary for the Board (Views)
 
